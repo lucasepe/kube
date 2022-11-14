@@ -15,12 +15,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	runtimeresource "k8s.io/cli-runtime/pkg/resource"
-	"k8s.io/client-go/kubernetes"
 )
 
-// EventsOptions is a set of options that allows you to list events.  This is the object reflects the
-// runtime needs of an events command, making the logic itself easy to unit test.
-type EventsOpts struct {
+// Opts is a set of options that allows you to list events.
+type Opts struct {
 	Namespace     string
 	AllNamespaces bool
 	FilterTypes   []string
@@ -28,11 +26,9 @@ type EventsOpts struct {
 	ForGVK    schema.GroupVersionKind
 	ForName   string
 	ForObject string
-
-	client *kubernetes.Clientset
 }
 
-func Do(f kubeutil.Factory, o EventsOpts) ([]corev1.Event, error) {
+func Do(f kubeutil.Factory, o Opts) ([]corev1.Event, error) {
 	if err := o.complete(f); err != nil {
 		return nil, err
 	}
@@ -41,10 +37,10 @@ func Do(f kubeutil.Factory, o EventsOpts) ([]corev1.Event, error) {
 		return nil, err
 	}
 
-	return o.run()
+	return o.run(f)
 }
 
-func (o *EventsOpts) complete(f kubeutil.Factory) error {
+func (o *Opts) complete(f kubeutil.Factory) error {
 	var err error
 	o.Namespace, _, err = f.ToRawKubeConfigLoader().Namespace()
 	if err != nil {
@@ -70,7 +66,7 @@ func (o *EventsOpts) complete(f kubeutil.Factory) error {
 	return err
 }
 
-func (o *EventsOpts) validate() error {
+func (o *Opts) validate() error {
 	for _, val := range o.FilterTypes {
 		if !strings.EqualFold(val, "Normal") && !strings.EqualFold(val, "Warning") {
 			return fmt.Errorf("valid types are Normal or Warning")
@@ -81,7 +77,7 @@ func (o *EventsOpts) validate() error {
 }
 
 // run retrieves events
-func (o *EventsOpts) run() ([]corev1.Event, error) {
+func (o *Opts) run(f kubeutil.Factory) ([]corev1.Event, error) {
 	ctx := context.TODO()
 	namespace := o.Namespace
 	if o.AllNamespaces {
@@ -94,14 +90,19 @@ func (o *EventsOpts) run() ([]corev1.Event, error) {
 			fields.OneTermEqualSelector("involvedObject.name", o.ForName)).String()
 	}
 
-	e := o.client.CoreV1().Events(namespace)
+	cli, err := f.KubernetesClientSet()
+	if err != nil {
+		return nil, err
+	}
+
+	e := cli.CoreV1().Events(namespace)
 	el := &corev1.EventList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "EventList",
 			APIVersion: "v1",
 		},
 	}
-	err := runtimeresource.FollowContinue(&listOptions,
+	err = runtimeresource.FollowContinue(&listOptions,
 		func(options metav1.ListOptions) (runtime.Object, error) {
 			newEvents, err := e.List(ctx, options)
 			if err != nil {
@@ -147,7 +148,7 @@ func (o *EventsOpts) run() ([]corev1.Event, error) {
 // by comparing it in filtered event flag.
 // If --event flag is not set by user, this function allows
 // all events to be printed.
-func (o *EventsOpts) filteredEventType(et string) bool {
+func (o *Opts) filteredEventType(et string) bool {
 	if len(o.FilterTypes) == 0 {
 		return true
 	}

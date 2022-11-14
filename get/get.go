@@ -6,7 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-type GetOpts struct {
+type Opts struct {
 	ChunkSize int64
 
 	LabelSelector string
@@ -18,7 +18,7 @@ type GetOpts struct {
 	IgnoreNotFound bool
 }
 
-func Do(f kubeutil.Factory, o GetOpts, args ...string) ([]*unstructured.Unstructured, error) {
+func Do(f kubeutil.Factory, o Opts, args ...string) ([]*unstructured.Unstructured, error) {
 	if o.ChunkSize <= 0 {
 		o.ChunkSize = kubeutil.DefaultChunkSize
 	}
