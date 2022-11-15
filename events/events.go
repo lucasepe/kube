@@ -9,7 +9,6 @@ import (
 
 	kubeutil "github.com/lucasepe/kube/util"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -23,9 +22,8 @@ type Opts struct {
 	AllNamespaces bool
 	FilterTypes   []string
 
-	ForGVK    schema.GroupVersionKind
-	ForName   string
-	ForObject string
+	ForGVK  schema.GroupVersionKind
+	ForName string
 }
 
 func Do(f kubeutil.Factory, o Opts) ([]corev1.Event, error) {
@@ -42,24 +40,10 @@ func Do(f kubeutil.Factory, o Opts) ([]corev1.Event, error) {
 
 func (o *Opts) complete(f kubeutil.Factory) error {
 	var err error
-	o.Namespace, _, err = f.ToRawKubeConfigLoader().Namespace()
-	if err != nil {
-		return err
-	}
-
-	if o.ForObject != "" {
-		mapper, err := f.ToRESTMapper()
+	if len(o.Namespace) == 0 {
+		o.Namespace, _, err = f.ToRawKubeConfigLoader().Namespace()
 		if err != nil {
 			return err
-		}
-
-		var found bool
-		o.ForGVK, o.ForName, found, err = decodeResourceTypeName(mapper, o.ForObject)
-		if err != nil {
-			return err
-		}
-		if !found {
-			return fmt.Errorf("forObject must be in resource/name form")
 		}
 	}
 
@@ -83,13 +67,20 @@ func (o *Opts) run(f kubeutil.Factory) ([]corev1.Event, error) {
 	if o.AllNamespaces {
 		namespace = ""
 	}
+
 	listOptions := metav1.ListOptions{Limit: kubeutil.DefaultChunkSize}
-	if o.ForName != "" {
+	if len(o.ForGVK.Kind) > 0 {
 		listOptions.FieldSelector = fields.AndSelectors(
+			fields.OneTermEqualSelector("involvedObject.apiVersion", o.ForGVK.GroupVersion().String()),
 			fields.OneTermEqualSelector("involvedObject.kind", o.ForGVK.Kind),
-			fields.OneTermEqualSelector("involvedObject.name", o.ForName)).String()
+		).String()
 	}
 
+	if len(o.ForName) > 0 {
+		listOptions.FieldSelector = fields.OneTermEqualSelector("involvedObject.name", o.ForName).String()
+	}
+
+	fmt.Println("==>", listOptions.FieldSelector)
 	cli, err := f.KubernetesClientSet()
 	if err != nil {
 		return nil, err
@@ -160,32 +151,6 @@ func (o *Opts) filteredEventType(et string) bool {
 	}
 
 	return false
-}
-
-// decodeResourceTypeName handles type/name resource formats and returns a resource tuple
-// (empty or not), whether it successfully found one, and an error
-func decodeResourceTypeName(mapper meta.RESTMapper, s string) (gvk schema.GroupVersionKind, name string, found bool, err error) {
-	if !strings.Contains(s, "/") {
-		return
-	}
-	seg := strings.Split(s, "/")
-	if len(seg) != 2 {
-		err = fmt.Errorf("arguments in resource/name form may not have more than one slash")
-		return
-	}
-	resource, name := seg[0], seg[1]
-
-	var gvr schema.GroupVersionResource
-	gvr, err = mapper.ResourceFor(schema.GroupVersionResource{Resource: resource})
-	if err != nil {
-		return
-	}
-	gvk, err = mapper.KindFor(gvr)
-	if err != nil {
-		return
-	}
-	found = true
-	return
 }
 
 // SortableEvents implements sort.Interface for []api.Event by time
