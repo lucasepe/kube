@@ -7,18 +7,17 @@ import (
 )
 
 type Opts struct {
-	ChunkSize int64
-
-	LabelSelector string
-	FieldSelector string
-	AllNamespaces bool
-	Namespace     string
-	Subresource   string
-
+	ChunkSize      int64
+	Resources      []string
+	LabelSelector  string
+	FieldSelector  string
+	AllNamespaces  bool
+	Namespace      string
+	Subresource    string
 	IgnoreNotFound bool
 }
 
-func Do(f kubeutil.Factory, o Opts, args ...string) ([]*unstructured.Unstructured, error) {
+func Do(f kubeutil.Factory, o Opts) ([]*unstructured.Unstructured, error) {
 	if o.ChunkSize <= 0 {
 		o.ChunkSize = kubeutil.DefaultChunkSize
 	}
@@ -33,7 +32,7 @@ func Do(f kubeutil.Factory, o Opts, args ...string) ([]*unstructured.Unstructure
 		FieldSelectorParam(o.FieldSelector).
 		Subresource(o.Subresource).
 		RequestChunksOf(o.ChunkSize).
-		ResourceTypeOrNameArgs(true, args...).
+		ResourceTypeOrNameArgs(true, o.Resources...).
 		ContinueOnError().
 		Latest().
 		Flatten().
