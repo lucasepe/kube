@@ -276,15 +276,14 @@ func DefaultConsumeRequest(request rest.ResponseWrapper, out io.Writer) error {
 	for {
 		bytes, err := r.ReadBytes('\n')
 		if err != nil {
-			return err
-		}
-
-		_, err = out.Write(bytes)
-		if err != nil {
 			if err != io.EOF {
 				return err
 			}
 			return nil
+		}
+
+		if _, err := out.Write(bytes); err != nil {
+			return err
 		}
 	}
 }
