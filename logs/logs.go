@@ -121,7 +121,9 @@ func (o *Opts) complete(f kubeutil.Factory) error {
 		o.Out = os.Stdout
 	}
 
-	o.ConsumeRequestFn = DefaultConsumeRequest
+	if o.ConsumeRequestFn == nil {
+		o.ConsumeRequestFn = DefaultConsumeRequest
+	}
 
 	if o.MaxFollowConcurrency <= 0 {
 		o.MaxFollowConcurrency = 5
