@@ -16,7 +16,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/rest"
 )
 
@@ -49,10 +48,9 @@ type Opts struct {
 	MaxFollowConcurrency int
 	Prefix               bool
 
-	Object           runtime.Object
-	GetPodTimeout    time.Duration
-	RESTClientGetter genericclioptions.RESTClientGetter
-	LogsForObject    LogsForObjectFunc
+	Object        runtime.Object
+	GetPodTimeout time.Duration
+	LogsForObject LogsForObjectFunc
 
 	containerNameFromRefSpecRegexp *regexp.Regexp
 }
@@ -135,7 +133,6 @@ func (o *Opts) complete(f kubeutil.Factory) error {
 		return err
 	}
 
-	o.RESTClientGetter = f
 	o.LogsForObject = logsForObject
 
 	if o.Object == nil {
@@ -170,7 +167,7 @@ func Do(f kubeutil.Factory, o Opts) error {
 		return err
 	}
 
-	requests, err := o.LogsForObject(o.RESTClientGetter, o.Object, o.Options, o.GetPodTimeout, o.AllContainers)
+	requests, err := o.LogsForObject(f, o.Object, o.Options, o.GetPodTimeout, o.AllContainers)
 	if err != nil {
 		return err
 	}
