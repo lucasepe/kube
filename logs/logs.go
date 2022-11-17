@@ -275,10 +275,11 @@ func DefaultConsumeRequest(request rest.ResponseWrapper, out io.Writer) error {
 	r := bufio.NewReader(readCloser)
 	for {
 		bytes, err := r.ReadBytes('\n')
-		if _, err := out.Write(bytes); err != nil {
+		if err != nil {
 			return err
 		}
 
+		_, err = out.Write(bytes)
 		if err != nil {
 			if err != io.EOF {
 				return err
