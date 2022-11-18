@@ -250,9 +250,9 @@ func (o Opts) addPrefixIfNeeded(ref corev1.ObjectReference, writer io.Writer) ([
 		containerName = containerNameMatches[1]
 	}
 
-	prefix := fmt.Sprintf("[pod/%s/%s] ", ref.Name, containerName)
+	prefix := fmt.Sprintf("%s/%s", ref.Name, containerName)
 	return []byte(prefix), &prefixingWriter{
-		prefix: []byte(prefix),
+		prefix: []byte(fmt.Sprintf("[%s]", prefix)),
 		writer: writer,
 	}
 }
