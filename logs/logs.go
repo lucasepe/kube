@@ -30,7 +30,7 @@ type Opts struct {
 	Options       runtime.Object
 	Out           io.Writer
 
-	ConsumeRequestFn func(rest.ResponseWrapper, string, io.Writer) error
+	ConsumeRequestFn func(rest.ResponseWrapper, []byte, io.Writer) error
 
 	// PodLogOptions
 	SinceTime                    string
@@ -236,9 +236,9 @@ func (o Opts) sequentialConsumeRequest(requests map[corev1.ObjectReference]rest.
 	return nil
 }
 
-func (o Opts) addPrefixIfNeeded(ref corev1.ObjectReference, writer io.Writer) (string, io.Writer) {
+func (o Opts) addPrefixIfNeeded(ref corev1.ObjectReference, writer io.Writer) ([]byte, io.Writer) {
 	if !o.Prefix || ref.FieldPath == "" || ref.Name == "" {
-		return "", writer
+		return nil, writer
 	}
 
 	// We rely on ref.FieldPath to contain a reference to a container
@@ -251,7 +251,7 @@ func (o Opts) addPrefixIfNeeded(ref corev1.ObjectReference, writer io.Writer) (s
 	}
 
 	prefix := fmt.Sprintf("[pod/%s/%s] ", ref.Name, containerName)
-	return prefix, &prefixingWriter{
+	return []byte(prefix), &prefixingWriter{
 		prefix: []byte(prefix),
 		writer: writer,
 	}
@@ -265,7 +265,7 @@ func (o Opts) addPrefixIfNeeded(ref corev1.ObjectReference, writer io.Writer) (s
 // A successful read returns err == nil, not err == io.EOF.
 // Because the function is defined to read from request until io.EOF, it does
 // not treat an io.EOF as an error to be reported.
-func DefaultConsumeRequest(request rest.ResponseWrapper, _ string, out io.Writer) error {
+func DefaultConsumeRequest(request rest.ResponseWrapper, _ []byte, out io.Writer) error {
 	readCloser, err := request.Stream(context.TODO())
 	if err != nil {
 		return err
