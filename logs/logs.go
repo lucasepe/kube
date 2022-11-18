@@ -30,7 +30,7 @@ type Opts struct {
 	Options       runtime.Object
 	Out           io.Writer
 
-	ConsumeRequestFn func(rest.ResponseWrapper, io.Writer) error
+	ConsumeRequestFn func(rest.ResponseWrapper, string, io.Writer) error
 
 	// PodLogOptions
 	SinceTime                    string
@@ -197,8 +197,8 @@ func (o Opts) parallelConsumeRequest(requests map[corev1.ObjectReference]rest.Re
 	for objRef, request := range requests {
 		go func(objRef corev1.ObjectReference, request rest.ResponseWrapper) {
 			defer wg.Done()
-			out := o.addPrefixIfNeeded(objRef, writer)
-			if err := o.ConsumeRequestFn(request, out); err != nil {
+			prefix, out := o.addPrefixIfNeeded(objRef, writer)
+			if err := o.ConsumeRequestFn(request, prefix, out); err != nil {
 				if !o.IgnoreLogErrors {
 					writer.CloseWithError(err)
 
@@ -223,8 +223,8 @@ func (o Opts) parallelConsumeRequest(requests map[corev1.ObjectReference]rest.Re
 
 func (o Opts) sequentialConsumeRequest(requests map[corev1.ObjectReference]rest.ResponseWrapper) error {
 	for objRef, request := range requests {
-		out := o.addPrefixIfNeeded(objRef, o.Out)
-		if err := o.ConsumeRequestFn(request, out); err != nil {
+		prefix, out := o.addPrefixIfNeeded(objRef, o.Out)
+		if err := o.ConsumeRequestFn(request, prefix, out); err != nil {
 			if !o.IgnoreLogErrors {
 				return err
 			}
@@ -236,9 +236,9 @@ func (o Opts) sequentialConsumeRequest(requests map[corev1.ObjectReference]rest.
 	return nil
 }
 
-func (o Opts) addPrefixIfNeeded(ref corev1.ObjectReference, writer io.Writer) io.Writer {
+func (o Opts) addPrefixIfNeeded(ref corev1.ObjectReference, writer io.Writer) (string, io.Writer) {
 	if !o.Prefix || ref.FieldPath == "" || ref.Name == "" {
-		return writer
+		return "", writer
 	}
 
 	// We rely on ref.FieldPath to contain a reference to a container
@@ -251,7 +251,7 @@ func (o Opts) addPrefixIfNeeded(ref corev1.ObjectReference, writer io.Writer) io
 	}
 
 	prefix := fmt.Sprintf("[pod/%s/%s] ", ref.Name, containerName)
-	return &prefixingWriter{
+	return prefix, &prefixingWriter{
 		prefix: []byte(prefix),
 		writer: writer,
 	}
@@ -265,7 +265,7 @@ func (o Opts) addPrefixIfNeeded(ref corev1.ObjectReference, writer io.Writer) io
 // A successful read returns err == nil, not err == io.EOF.
 // Because the function is defined to read from request until io.EOF, it does
 // not treat an io.EOF as an error to be reported.
-func DefaultConsumeRequest(request rest.ResponseWrapper, out io.Writer) error {
+func DefaultConsumeRequest(request rest.ResponseWrapper, _ string, out io.Writer) error {
 	readCloser, err := request.Stream(context.TODO())
 	if err != nil {
 		return err
