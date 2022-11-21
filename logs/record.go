@@ -44,6 +44,7 @@ func (r Record) String() string {
 	}, " ")
 
 }
+
 func newRecord(dat []byte) Record {
 	rec := Record{}
 	parts := strings.Split(string(dat), "\t")
@@ -88,6 +89,11 @@ func defaultRequestConsumeFn(request rest.ResponseWrapper, fn func(Record) error
 				return err
 			}
 			return nil
+		}
+
+		rec := newRecord(dat)
+		if rec.timestamp.IsZero() {
+			continue
 		}
 
 		if err := fn(newRecord(dat)); err != nil {
