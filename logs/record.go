@@ -14,21 +14,11 @@ import (
 
 type Record struct {
 	timestamp time.Time
-	level     string
-	source    string
 	msg       string
 }
 
 func (r Record) Time() time.Time {
 	return r.timestamp
-}
-
-func (r Record) Level() string {
-	return r.level
-}
-
-func (r Record) Source() string {
-	return r.source
 }
 
 func (r Record) Msg() string {
@@ -38,25 +28,22 @@ func (r Record) Msg() string {
 func (r Record) String() string {
 	return strings.Join([]string{
 		r.timestamp.Format(time.RFC3339),
-		r.level,
-		r.source,
 		r.msg,
 	}, " ")
 
 }
 
-func newRecord(dat []byte) Record {
+func newRecord(ln string) Record {
 	rec := Record{}
-	parts := strings.Split(string(dat), "\t")
-	if len(parts) >= 3 {
+	parts := strings.Split(ln, "\t")
+	fmt.Println("==> ", ln, "  - ", len(parts))
+	if len(parts) > 1 {
 		idx := strings.Index(parts[0], " ")
 		if idx != -1 {
 			parts[0] = parts[0][0:idx]
 		}
 		rec.timestamp, _ = time.Parse(time.RFC3339, parts[0])
-		rec.level = parts[1]
-		rec.source = parts[2]
-		rec.msg = strings.TrimSpace(strings.Join(parts[3:], " "))
+		rec.msg = strings.TrimSpace(strings.Join(parts[1:], " "))
 	}
 	return rec
 }
@@ -91,12 +78,12 @@ func defaultRequestConsumeFn(request rest.ResponseWrapper, fn func(Record) error
 			return nil
 		}
 
-		rec := newRecord(dat)
+		rec := newRecord(strings.TrimSpace(string(dat)))
 		if rec.timestamp.IsZero() {
 			continue
 		}
 
-		if err := fn(newRecord(dat)); err != nil {
+		if err := fn(rec); err != nil {
 			return err
 		}
 	}
